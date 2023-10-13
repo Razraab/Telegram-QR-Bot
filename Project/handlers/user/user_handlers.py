@@ -20,16 +20,26 @@ let me know with the command /payment
 """
 
 
+# Start command /start.
 async def start_message(message: types.Message) -> None:
     await connect()
     await message.answer(START_MESSAGE, reply_markup=make())
 
 
+# Connect to database.
 async def connect():
     await db.create_connection()
     await db.create_table('users')
 
 
+"""
+Invoke when user send
+/payment and send for him
+order for buy attemps package.
+
+link to understand payment in aiogram:
+https://selectel.ru/blog/tutorials/telegram-bot-with-monetization/
+"""
 async def process_buy(call: types.CallbackQuery) -> None:
     await connect()
     await bot.send_invoice(
@@ -44,10 +54,16 @@ async def process_buy(call: types.CallbackQuery) -> None:
     )
 
 
+# Invoke after payment in 10s for check.
 async def process_precheck(precheck: types.PreCheckoutQuery) -> None:
     await bot.answer_pre_checkout_query(precheck.id, ok=True)
 
 
+"""
+Invoke after payment
+and update database and
+add new 25 attemps.
+"""
 async def successfuly_payment(message: types.Message) -> None:
     await connect()
     print('Success Payment')
@@ -55,6 +71,10 @@ async def successfuly_payment(message: types.Message) -> None:
     await message.answer('You success buy a attemps package!')
 
 
+"""
+This func return user a qr code
+when he have a attemps > 0.
+"""
 async def qrcode_handle(message: types.Message, state: FSMContext) -> None:
     await connect()
     path = os.getcwd() + f'\\qrcodes\\{message.from_user.id}'
@@ -70,6 +90,10 @@ async def qrcode_handle(message: types.Message, state: FSMContext) -> None:
     await db.update_user(message.from_user.id, await db.get_attemps(message.from_user.id) - 1)
 
 
+"""
+Start dialog when user
+send /qrcode command.
+"""
 async def start_dialog(message: types.Message) -> None:
     await connect()
     if await db.get_attemps(message.from_user.id) > 0:
@@ -80,6 +104,7 @@ async def start_dialog(message: types.Message) -> None:
                              'Please use /payment command')
 
 
+# Register all handlers.
 def register_user(dp: Dispatcher) -> None:
     dp.register_message_handler(start_message, commands='start', state=None)
     dp.register_message_handler(process_buy, commands='payment', state=None)

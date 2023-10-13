@@ -1,6 +1,6 @@
-import qrcode
+from qrcode import make
 
 
 def create(text: str, path: str) -> None:
-    img = qrcode.make(text)
+    img = make(text)
     img.save(path)
