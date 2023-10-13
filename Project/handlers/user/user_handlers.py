@@ -20,7 +20,7 @@ let me know with the command /payment
 """
 
 
-async def start_message(message: types.Message):
+async def start_message(message: types.Message) -> None:
     await connect()
     await message.answer(START_MESSAGE, reply_markup=make())
 
@@ -30,7 +30,7 @@ async def connect():
     await db.create_table('users')
 
 
-async def process_buy(call: types.CallbackQuery):
+async def process_buy(call: types.CallbackQuery) -> None:
     await connect()
     await bot.send_invoice(
         chat_id=call.from_user.id,
@@ -44,18 +44,18 @@ async def process_buy(call: types.CallbackQuery):
     )
 
 
-async def process_precheck(precheck: types.PreCheckoutQuery):
+async def process_precheck(precheck: types.PreCheckoutQuery) -> None:
     await bot.answer_pre_checkout_query(precheck.id, ok=True)
 
 
-async def successfuly_payment(message: types.Message):
+async def successfuly_payment(message: types.Message) -> None:
     await connect()
     print('Success Payment')
     await db.update_user(message.from_user.id, await db.get_attemps(message.from_user.id) + 25)
     await message.answer('You success buy a attemps package!')
 
 
-async def qrcode_handle(message: types.Message, state: FSMContext):
+async def qrcode_handle(message: types.Message, state: FSMContext) -> None:
     await connect()
     path = os.getcwd() + f'\\qrcodes\\{message.from_user.id}'
     if not os.path.exists(path):
@@ -70,7 +70,7 @@ async def qrcode_handle(message: types.Message, state: FSMContext):
     await db.update_user(message.from_user.id, await db.get_attemps(message.from_user.id) - 1)
 
 
-async def start_dialog(message: types.Message):
+async def start_dialog(message: types.Message) -> None:
     await connect()
     if await db.get_attemps(message.from_user.id) > 0:
         await FSMContext.dialog.set()
@@ -80,7 +80,7 @@ async def start_dialog(message: types.Message):
                              'Please use /payment command')
 
 
-def register_user(dp: Dispatcher):
+def register_user(dp: Dispatcher) -> None:
     dp.register_message_handler(start_message, commands='start', state=None)
     dp.register_message_handler(process_buy, commands='payment', state=None)
     dp.register_pre_checkout_query_handler(process_precheck, lambda query: True, state=None)
