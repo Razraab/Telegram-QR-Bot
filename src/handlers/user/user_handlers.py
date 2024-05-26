@@ -2,7 +2,7 @@ import os
 import aiofiles
 
 from .make_keyboard import make
-from .qr_creator import create
+from .qr_creator import create_qrcode
 from make_bot import bot, db, PAYMASTER_TOKEN
 
 from handlers.FSMContext import FSMContext
@@ -23,6 +23,7 @@ let me know with the command /payment
 # Start command /start.
 async def start_message(message: types.Message) -> None:
     await connect()
+    await db.create_user(message.from_user.id, 0)
     await message.answer(START_MESSAGE, reply_markup=make())
 
 
@@ -54,34 +55,23 @@ async def process_buy(call: types.CallbackQuery) -> None:
     )
 
 
-# Invoke after payment in 10s for check.
+# Invoke after payment in 10s for check success.
 async def process_precheck(precheck: types.PreCheckoutQuery) -> None:
     await bot.answer_pre_checkout_query(precheck.id, ok=True)
 
 
-"""
-Invoke after payment
-and update database and
-add new 25 attemps.
-"""
+# Invoke after payment and update database and add new 25 attemps.
 async def successfuly_payment(message: types.Message) -> None:
     await connect()
-    print('Success Payment')
     await db.update_user(message.from_user.id, await db.get_attemps(message.from_user.id) + 25)
     await message.answer('You success buy a attemps package!')
 
 
-"""
-This func return user a qr code
-when he have a attemps > 0.
-"""
-async def qrcode_handle(message: types.Message, state: FSMContext) -> None:
+# This func return user a qr code when he have a attemps > 0.
+async def qrcode_handle(message: types.Message) -> None:
     await connect()
-    path = os.getcwd() + f'\\qrcodes\\{message.from_user.id}'
-    if not os.path.exists(path):
-        os.mkdir(path)
-
-    create(message.text, path+'\\edited_photo.png')
+    path = f'qrcodes\\{message.from_user.id}'
+    create_qrcode(message.text, path, 'edited_photo.png')
     async with aiofiles.open(path+'\\edited_photo.png', 'rb') as f:
         await bot.send_photo(chat_id=message.chat.id,
                              photo=await f.read(),
@@ -90,21 +80,24 @@ async def qrcode_handle(message: types.Message, state: FSMContext) -> None:
     await db.update_user(message.from_user.id, await db.get_attemps(message.from_user.id) - 1)
 
 
-"""
-Start dialog when user
-send /qrcode command.
-"""
+# Start dialog when user send /qrcode command.
 async def start_dialog(message: types.Message) -> None:
     await connect()
-    if await db.get_attemps(message.from_user.id) > 0:
+    attemps = await db.get_attemps(message.from_user.id)
+    if attemps > 0:
         await FSMContext.dialog.set()
         await message.answer('Send text for handle')
     else:
-        await message.answer('You haven\'t attemps for create qrcode!'
-                             'Please use /payment command')
+        await message.answer('You haven\'t attemps for create qrcode')
 
 
-# Register all handlers.
+async def cmd_balance(message: types.Message) -> None:
+    await connect()
+    attemps = await db.get_attemps(message.from_user.id)
+    await message.answer(f'Your attemps for creating qr code: {attemps}')
+
+
+# Register all user handlers.
 def register_user(dp: Dispatcher) -> None:
     dp.register_message_handler(start_message, commands='start', state=None)
     dp.register_message_handler(process_buy, commands='payment', state=None)
@@ -112,3 +105,4 @@ def register_user(dp: Dispatcher) -> None:
     dp.register_message_handler(successfuly_payment, content_types=types.ContentTypes.SUCCESSFUL_PAYMENT, state=None)
     dp.register_message_handler(start_dialog, commands='qrcode', state=None)
     dp.register_message_handler(qrcode_handle, state=FSMContext.dialog)
+    dp.register_message_handler(cmd_balance, commands='balance', state=None)
